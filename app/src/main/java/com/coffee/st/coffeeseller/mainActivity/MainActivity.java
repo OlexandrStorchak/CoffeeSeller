@@ -6,13 +6,17 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.FragmentManager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.View;
 
+import com.coffee.st.coffeeseller.AuthGoogleSignIn;
 import com.coffee.st.coffeeseller.R;
 import com.coffee.st.coffeeseller.ScanQRActivity;
 import com.coffee.st.coffeeseller.mainScreenFragment.MainScreenFragment;
+import com.google.firebase.auth.FirebaseAuth;
 
 import static com.coffee.st.coffeeseller.Const.MAIN_SCREEN_FRAGMENT_TAG;
+import static com.coffee.st.coffeeseller.Const.REQUEST_SIGN_IN;
 import static com.coffee.st.coffeeseller.Const.RQCODE;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -21,19 +25,36 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private FragmentManager mFragmentManager = getSupportFragmentManager();
     private FloatingActionButton mFAB;
 
+    private FirebaseAuth mFirebaseAuth;
+    private AuthGoogleSignIn mAuthGoogle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        Log.e("tag", String.valueOf(this.hashCode()) );
+
+        mFirebaseAuth = FirebaseAuth.getInstance();
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         mFAB = findViewById(R.id.fab);
+        mFAB.setVisibility(View.GONE);
         mFAB.setOnClickListener(this);
-        showMainScreenFragment();
 
+        if (mFirebaseAuth.getCurrentUser() == null) {
+            checkUser();
+        } else {
+            showMainScreenFragment();
+            mFAB.setVisibility(View.VISIBLE);
+        }
+    }
 
+    private void checkUser() {
+        mAuthGoogle = new AuthGoogleSignIn(this, mFirebaseAuth);
+        mAuthGoogle.startSignIn();
     }
 
     @Override
@@ -72,12 +93,24 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (resultCode == RESULT_OK) {
             switch (requestCode) {
                 case RQCODE:
-                    MainScreenFragment mainScreenFragment = (MainScreenFragment) mFragmentManager
-                            .findFragmentByTag(MAIN_SCREEN_FRAGMENT_TAG);
-                    mainScreenFragment.setQrCode(data.getStringExtra("qr"));
+                    onQRCodeScaned(data);
+                    break;
+
+                case REQUEST_SIGN_IN:
+                    onSignInResult(data);
                     break;
             }
         }
+    }
+
+    private void onSignInResult(Intent data) {
+        mAuthGoogle.onSignInActivityResult(data);
+    }
+
+    private void onQRCodeScaned(Intent data) {
+        MainScreenFragment mainScreenFragment = (MainScreenFragment) mFragmentManager
+                .findFragmentByTag(MAIN_SCREEN_FRAGMENT_TAG);
+        mainScreenFragment.setQrCode(data.getStringExtra("qr"));
     }
 
     @Override
@@ -92,5 +125,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
 
+    }
 }
